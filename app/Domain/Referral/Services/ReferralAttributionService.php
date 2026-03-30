@@ -150,4 +150,30 @@ class ReferralAttributionService
 
         return $query->first();
     }
+
+    /**
+     * Get leaderboard data with referrer rankings.
+     *
+     * @param int|null $limit Optional limit for top N referrers
+     * @return \Illuminate\Support\Collection
+     */
+    public function getLeaderboard(?int $limit = null): \Illuminate\Support\Collection
+    {
+        $query = ReferralAttribution::select(
+            'referrer_user_id',
+            DB::raw('COUNT(CASE WHEN attribution_status = "captured" THEN 1 END) as captured_count'),
+            DB::raw('COUNT(CASE WHEN attribution_status = "linked" THEN 1 END) as linked_count'),
+            DB::raw('COUNT(*) as total_count')
+        )
+            ->whereNotNull('referrer_user_id')
+            ->groupBy('referrer_user_id')
+            ->orderByDesc('total_count')
+            ->orderByDesc('captured_count');
+
+        if ($limit) {
+            $query->limit($limit);
+        }
+
+        return $query->get();
+    }
 }
