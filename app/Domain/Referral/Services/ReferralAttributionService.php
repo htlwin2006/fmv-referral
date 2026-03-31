@@ -176,4 +176,19 @@ class ReferralAttributionService
 
         return $query->get();
     }
+
+    /**
+     * Get referral attribution by prospect Telegram ID.
+     *
+     * @param string $telegramId
+     * @return ReferralAttribution|null
+     */
+    public function getReferralByTelegramId(string $telegramId): ?ReferralAttribution
+    {
+        return ReferralAttribution::where('prospect_telegram_id', $telegramId)
+            ->with(['referralCode', 'campaign'])
+            ->whereNull('deleted_at')
+            ->latest('created_at')
+            ->first();
+    }
 }
