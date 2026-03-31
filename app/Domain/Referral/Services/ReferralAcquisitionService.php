@@ -123,4 +123,58 @@ class ReferralAcquisitionService
 
         return null;
     }
+
+    /**
+     * Reject an account and mark the attribution as rejected.
+     *
+     * @param array $data Validated rejection data
+     * @return array ['attribution' => ReferralAttribution, 'was_rejected' => bool]
+     * @throws ReferralAttributionNotFoundException
+     */
+    public function rejectAccount(array $data): array
+    {
+        // Resolve attribution
+        $attribution = $this->resolveAttribution($data);
+
+        if (!$attribution) {
+            throw new ReferralAttributionNotFoundException();
+        }
+
+        // Allow rejection for captured or linked attributions
+        if (!in_array($attribution->attribution_status, ['captured', 'linked'])) {
+            throw new ReferralAttributionNotFoundException('Attribution cannot be rejected in current status.');
+        }
+
+        // Check if already rejected
+        if ($attribution->attribution_status === 'rejected') {
+            return [
+                'attribution' => $attribution,
+                'was_rejected' => false,
+            ];
+        }
+
+        // Update attribution to rejected
+        DB::transaction(function () use ($attribution, $data) {
+            $metadata = $attribution->metadata ?? [];
+            
+            // Add rejection info to metadata
+            $metadata['rejected_at'] = now()->toISOString();
+            if (!empty($data['rejection_reason'])) {
+                $metadata['rejection_reason'] = $data['rejection_reason'];
+            }
+            if (!empty($data['metadata'])) {
+                $metadata = array_merge($metadata, $data['metadata']);
+            }
+
+            $attribution->update([
+                'attribution_status' => 'rejected',
+                'metadata' => $metadata,
+            ]);
+        });
+
+        return [
+            'attribution' => $attribution->fresh(),
+            'was_rejected' => true,
+        ];
+    }
 }
